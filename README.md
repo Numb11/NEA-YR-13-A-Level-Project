@@ -1,8 +1,7 @@
 # NEA-YR-13-A-Level-Project
 Planned project subject to change
 
-**Initial Idea**\\
-
+**Initial Idea**<br />
 
 
 Programmed mainly in Python.
