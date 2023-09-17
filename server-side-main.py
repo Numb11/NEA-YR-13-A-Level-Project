@@ -57,6 +57,7 @@ def receive_message(meta):
         #Temporarily store any data received after terminator
         
     data = data.split("##,##")                        #Split message into parts
+    print(data,"received")
     if data[-2] == "True" or data[-2] == True:        #Check if image received
         
        image_info = data[0].split(";#;")              #Split image section
@@ -70,7 +71,7 @@ def receive_message(meta):
        
     else:
        act_data = key_D_PRIV(key_A_PUB(data[0].split()))[0]
-       
+    print(act_data,"actual data")
     if data[1] == meta:
        return decompress(act_data,data[2],data[3],data[4])
    
@@ -97,7 +98,7 @@ def decompress(data,technique,image,file):
     
     
     
-def RLD(rgbs,metadata): #Dont need
+def RLD(rgbs,metadata): 
     counter = 0
     new = Image.new(metadata[1],metadata[0],"white") #metadata[1] = im.mode and metadata[2] = im.size
     
@@ -177,6 +178,7 @@ def send_message(data,meta,image,file,comp_technique):
     to_be_sent = (f"{image_data};#;{image_meta}##,##{meta}##,##{comp_technique}##,##{image}##,##{file}///n").encode()
     clientsock.sendto(to_be_sent,(clientaddress[0],1024))
   else:
+    print(data)
     data = "##,##".join((key_D_PRIV(key_A_PUB(data.split("##,##")))))
     to_be_sent = (f"{data}##,##{meta}##,##{comp_technique}##,##{image}##,##{file}///n").encode()
     clientsock.sendto(to_be_sent, (clientaddress[0],1024))
@@ -192,12 +194,13 @@ class ThreadC(threading.Thread):
         self.client_socket = clientsocket
         self.client_address = clientaddress
         self.UID = clientID
+        self.recipient = ""
         print(f"{self.UID} has connected!")
         
         
         
     def run(self):
-        global queryresult,db,recipient,address_book
+        global queryresult,db,address_book
         print("running")
         while True:
           address_book = []
@@ -206,6 +209,7 @@ class ThreadC(threading.Thread):
               self.update()
               
           elif data[1] == "#1A":                #Update messages
+              print(data)
               self.update_messages(data)
             
           elif data[1] =="#10":                 #Report
@@ -234,19 +238,19 @@ class ThreadC(threading.Thread):
         
         
     def update_messages(self,data):
-       global queryresult,recipient,messages
+       global queryresult,messages
        
        query = """SELECT messages FROM main_database.messages WHERE UID = %s AND recipient = %s"""
        mycursor.execute(query,(self.UID,data[0][0]))
        queryresult = mycursor.fetchall()
-       recipient = data[0][0]
+       self.recipient = data[0][0]
        
        if queryresult[0][0] != None:    
                  
               print(queryresult)
               messages = queryresult[0][0].split("#,#,#")             
               send_message(str(len(messages)),"#1A",False,False,None)                 #Allow client to receive all messages
-                         
+              print(messages,"253")  
               for i in messages:                                                      #Looping through inbox for recipient
                  message = i.split("#*#")                                             #split messages into parts
                  print(message)
@@ -260,24 +264,31 @@ class ThreadC(threading.Thread):
        
        
     def forward_message(self,data):
+        print("Forwarding Message")
+        print(data)
         global queryresult
-        global recipient
         comp_data = []
+        
         for i in data: 
           comp_data.append(i)
           
         comp_data = "#*#".join(comp_data)
+        print(comp_data)
         query = "UPDATE main_database.messages SET messages = %s WHERE (UID = %s and recipient = %s)"
+        print(queryresult,"277")
         
         if queryresult[0][0] == None:
            queryresult = comp_data
            
         else:
+           print(queryresult,"line 281")
+           print(queryresult[0][0],comp_data)
            queryresult = (queryresult[0][0]+"#,#,#"+comp_data)
            
-        mycursor.execute(query,(queryresult,self.UID,recipient))
+        print(queryresult,self.UID,self.recipient)
+        mycursor.execute(query,(queryresult,self.UID,self.recipient))
         query = "UPDATE main_database.messages SET messages = %s WHERE (UID = %s and recipient = %s)"
-        mycursor.execute(query,(queryresult,recipient,self.UID))
+        mycursor.execute(query,(queryresult,self.recipient,self.UID))
         db.commit()
         
         
@@ -289,12 +300,10 @@ class ThreadC(threading.Thread):
        
        
        
-       
-       
+           
 #Key Global Variables ------------
 
 nextm_buffer = ""
-recipient = ""
     
 #Constants ------------
 
@@ -321,6 +330,7 @@ print("Server Started, waiting for client connection...")
 
 
 #Client Connection ------------
+
 
 
 while True:
